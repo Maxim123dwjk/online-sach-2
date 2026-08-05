@@ -29,13 +29,7 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.7);
         }
 
-        /* Zabránenie mobilom meniť farby obrázkov figúrok v Dark Mode */
-        #board img {
-            filter: none !important;
-            -webkit-filter: none !important;
-        }
-
-        /* Krásne čitateľné drevené farby šachovnice */
+        /* Vzhľad šachovnice */
         .white-1e1d3 {
             background-color: #f0d9b5 !important;
             color: #b58863 !important;
@@ -82,6 +76,23 @@
         let game = new Chess();
         let board = null;
         let myColor = null;
+
+        // Vstavané SVG figúrky bez potreby sťahovania obrázkov
+        const svgPieces = {
+            'wP': 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="%23fff" stroke="%23000" stroke-width="1.5"/></svg>',
+            'wR': 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="%23fff" stroke="%23000" stroke-width="1.5"><path d="M9 39h27v-3H9v3zM12 36h21l-1.5-4H13.5l-1.5 4zM11 14h23l-2 18H13l-2-18zM9 10h4v4H9v-4zM16 10h3v4h-3v-4zM22 10h3v4h-3v-4zM28 10h3v4h-3v-4zM32 10h4v4h-4v-4z"/></g></svg>',
+            'wN': 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><path d="M 22 10 C 32.5 11 38.5 18 38 39 L 15 39 C 15 30 13.5 21.5 6 17 C 6.5 13 10 11 11.5 13.5 C 12 16 11 18.5 11 18.5 C 11 18.5 17 15.5 17 8.5 C 19.5 8.5 21.5 9.5 22 10 z" fill="%23fff" stroke="%23000" stroke-width="1.5"/></svg>',
+            'wB': 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="%23fff" stroke="%23000" stroke-width="1.5"><path d="M9 36c1.24-2.59 6-5.23 6-8.5 0-2.07-1.41-3.6-2.5-4.5 1.5-.5 3-2 3-4 0-2.21-1.79-4-4-4 1.5 0 2.5-1.5 2.5-2.5C14 11.01 12.5 9 10.5 9 8.5 9 7 11.01 7 12.5c0 1 1 2.5 2.5 2.5-2.21 0-4 1.79-4 4 0 2 1.5 3.5 3 4-1.09.9-2.5 2.43-2.5 4.5 0 3.27 4.76 5.91 6 8.5z" transform="translate(12,0)"/></g></svg>',
+            'wQ': 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="%23fff" stroke="%23000" stroke-width="1.5"><path d="M8 36h29v-3H8v3zM11 33h23l-2-5H13l-2 5zM9 26h27l2-15-7 6-8.5-11L14 17l-7-6 2 15z"/><circle cx="6" cy="11" r="2"/><circle cx="14" cy="17" r="2"/><circle cx="22.5" cy="9" r="2"/><circle cx="31" cy="17" r="2"/><circle cx="39" cy="11" r="2"/></g></svg>',
+            'wK': 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="%23fff" stroke="%23000" stroke-width="1.5"><path d="M22.5 11.63V6M20 8h5M22.5 25c-4 0-7-2.5-7-7 0-4 3-7 7-7s7 3 7 7c0 4.5-3 7-7 7zM11.5 37h22v-3h-22v3zM14.5 34h16l-2-5h-12l-2 5z"/></g></svg>',
+            
+            'bP': 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="%23000" stroke="%23fff" stroke-width="1.5"/></svg>',
+            'bR': 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="%23000" stroke="%23fff" stroke-width="1.5"><path d="M9 39h27v-3H9v3zM12 36h21l-1.5-4H13.5l-1.5 4zM11 14h23l-2 18H13l-2-18zM9 10h4v4H9v-4zM16 10h3v4h-3v-4zM22 10h3v4h-3v-4zM28 10h3v4h-3v-4zM32 10h4v4h-4v-4z"/></g></svg>',
+            'bN': 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><path d="M 22 10 C 32.5 11 38.5 18 38 39 L 15 39 C 15 30 13.5 21.5 6 17 C 6.5 13 10 11 11.5 13.5 C 12 16 11 18.5 11 18.5 C 11 18.5 17 15.5 17 8.5 C 19.5 8.5 21.5 9.5 22 10 z" fill="%23000" stroke="%23fff" stroke-width="1.5"/></svg>',
+            'bB': 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="%23000" stroke="%23fff" stroke-width="1.5"><path d="M9 36c1.24-2.59 6-5.23 6-8.5 0-2.07-1.41-3.6-2.5-4.5 1.5-.5 3-2 3-4 0-2.21-1.79-4-4-4 1.5 0 2.5-1.5 2.5-2.5C14 11.01 12.5 9 10.5 9 8.5 9 7 11.01 7 12.5c0 1 1 2.5 2.5 2.5-2.21 0-4 1.79-4 4 0 2 1.5 3.5 3 4-1.09.9-2.5 2.43-2.5 4.5 0 3.27 4.76 5.91 6 8.5z" transform="translate(12,0)"/></g></svg>',
+            'bQ': 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="%23000" stroke="%23fff" stroke-width="1.5"><path d="M8 36h29v-3H8v3zM11 33h23l-2-5H13l-2 5zM9 26h27l2-15-7 6-8.5-11L14 17l-7-6 2 15z"/><circle cx="6" cy="11" r="2"/><circle cx="14" cy="17" r="2"/><circle cx="22.5" cy="9" r="2"/><circle cx="31" cy="17" r="2"/><circle cx="39" cy="11" r="2"/></g></svg>',
+            'bK': 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><g fill="%23000" stroke="%23fff" stroke-width="1.5"><path d="M22.5 11.63V6M20 8h5M22.5 25c-4 0-7-2.5-7-7 0-4 3-7 7-7s7 3 7 7c0 4.5-3 7-7 7zM11.5 37h22v-3h-22v3zM14.5 34h16l-2-5h-12l-2 5z"/></g></svg>'
+        };
 
         const urlParams = new URLSearchParams(window.location.search);
         let roomId = urlParams.get('room');
@@ -150,8 +161,9 @@
                 onDragStart: onDragStart,
                 onDrop: onDrop,
                 onSnapEnd: onSnapEnd,
-                // Vysokokvalitné SVG figúrky priamo z cdnjs
-                pieceTheme: 'https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/img/chesspieces/wikipedia/{piece}.png'
+                pieceTheme: function(piece) {
+                    return svgPieces[piece];
+                }
             };
             board = Chessboard('board', config);
         }
