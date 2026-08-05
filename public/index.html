@@ -29,13 +29,19 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.7);
         }
 
-        /* OPRAVA FARIEB ŠACHOVNICE */
+        /* Zabránenie mobilom meniť farby obrázkov figúrok v Dark Mode */
+        #board img {
+            filter: none !important;
+            -webkit-filter: none !important;
+        }
+
+        /* Krásne čitateľné drevené farby šachovnice */
         .white-1e1d3 {
-            background-color: #f0d9b5 !important; /* Svetlé políčka - krémová */
+            background-color: #f0d9b5 !important;
             color: #b58863 !important;
         }
         .black-3c85d {
-            background-color: #b58863 !important; /* Tmavé políčka - teplá hnedá */
+            background-color: #b58863 !important;
             color: #f0d9b5 !important;
         }
 
@@ -144,7 +150,8 @@
                 onDragStart: onDragStart,
                 onDrop: onDrop,
                 onSnapEnd: onSnapEnd,
-                pieceTheme: 'https://raw.githubusercontent.com/oakmac/chessboardjs/master/website/img/chesspieces/wikipedia/{piece}.png'
+                // Vysokokvalitné SVG figúrky priamo z cdnjs
+                pieceTheme: 'https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/img/chesspieces/wikipedia/{piece}.png'
             };
             board = Chessboard('board', config);
         }
