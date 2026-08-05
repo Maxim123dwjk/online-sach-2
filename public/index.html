@@ -29,7 +29,7 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.7);
         }
 
-        /* Farby políčok pre vysoký kontrast */
+        /* Vzhľad šachovnice (Drevo) */
         .white-1e1d3 {
             background-color: #f0d9b5 !important;
             color: #b58863 !important;
@@ -37,6 +37,28 @@
         .black-3c85d {
             background-color: #b58863 !important;
             color: #f0d9b5 !important;
+        }
+
+        /* Styling pre Unicode figúrky (Červené vs Biele) */
+        .custom-piece {
+            font-size: 42px;
+            line-height: 48px;
+            text-align: center;
+            user-select: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        /* BIELE FIGÚRKY */
+        .piece-white {
+            color: #ffffff;
+            text-shadow: 0 0 3px #000, 0 0 5px #000;
+        }
+
+        /* ČERVENÉ FIGÚRKY (Namiesto čiernych) */
+        .piece-red {
+            color: #ff2a2a;
+            text-shadow: 0 0 3px #000, 0 0 5px #800000;
         }
 
         .btn { 
@@ -77,6 +99,11 @@
         let board = null;
         let myColor = null;
 
+        const pieceIcons = {
+            'wP': '♟', 'wR': '♜', 'wN': '♞', 'wB': '♝', 'wQ': '♛', 'wK': '♚',
+            'bP': '♟', 'bR': '♜', 'bN': '♞', 'bB': '♝', 'bQ': '♛', 'bK': '♚'
+        };
+
         const urlParams = new URLSearchParams(window.location.search);
         let roomId = urlParams.get('room');
 
@@ -92,7 +119,7 @@
             if (myColor === 'w') {
                 document.getElementById('status').innerText = 'Si BIELY. Čaká sa na druhého hráča...';
             } else if (myColor === 'b') {
-                document.getElementById('status').innerText = 'Si ČIERNY. Hra začína!';
+                document.getElementById('status').innerText = 'Si ČERVENÝ. Hra začína!';
             } else {
                 document.getElementById('status').innerText = 'Miestnosť je plná (Si iba divák)';
             }
@@ -128,13 +155,31 @@
 
         function onSnapEnd() {
             board.position(game.fen());
+            renderCustomPieces();
         }
 
         socket.on('move', (moveData) => {
             game.move({ from: moveData.source, to: moveData.target, promotion: 'q' });
             board.position(game.fen());
+            renderCustomPieces();
             updateStatus();
         });
+
+        function renderCustomPieces() {
+            $('#board .square-52243').each(function() {
+                const square = $(this).attr('data-square');
+                const piece = game.get(square);
+                $(this).find('.custom-piece').remove();
+                
+                if (piece) {
+                    const key = piece.color + piece.type.toUpperCase();
+                    const colorClass = piece.color === 'w' ? 'piece-white' : 'piece-red';
+                    const pieceEl = `<div class="custom-piece ${colorClass}">${pieceIcons[key]}</div>`;
+                    $(this).find('img').hide();
+                    $(this).append(pieceEl);
+                }
+            });
+        }
 
         function initBoard() {
             const config = {
@@ -143,19 +188,18 @@
                 orientation: myColor === 'b' ? 'black' : 'white',
                 onDragStart: onDragStart,
                 onDrop: onDrop,
-                onSnapEnd: onSnapEnd,
-                // Stabilný zdroj figúrok priamo z Lichess
-                pieceTheme: 'https://lichess1.org/assets/piece/cburnett/{piece}.svg'
+                onSnapEnd: onSnapEnd
             };
             board = Chessboard('board', config);
+            setTimeout(renderCustomPieces, 100);
         }
 
         function updateStatus() {
             let status = '';
-            const turnText = game.turn() === 'w' ? 'Biely' : 'Čierny';
+            const turnText = game.turn() === 'w' ? 'Biely' : 'Červený';
 
             if (game.in_checkmate()) {
-                status = `Koniec hry - Šach mat! Vyhral ${game.turn() === 'b' ? 'Biely' : 'Čierny'}.`;
+                status = `Koniec hry - Šach mat! Vyhral ${game.turn() === 'b' ? 'Biely' : 'Červený'}.`;
                 document.getElementById('restartBtn').style.display = 'inline-block';
             } else if (game.in_draw()) {
                 status = 'Koniec hry - Remíza!';
@@ -182,6 +226,7 @@
         socket.on('resetBoard', () => {
             game.reset();
             board.start();
+            renderCustomPieces();
             document.getElementById('restartBtn').style.display = 'none';
             document.getElementById('restartBtn').disabled = false;
             updateStatus();
