@@ -1,1 +1,213 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Online Šach</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            background: #121212; 
+            color: white; 
+            margin: 0;
+            padding: 10px;
+        }
+        h1 { font-size: 1.8em; margin: 10px 0 5px 0; }
+        #status { 
+            font-size: 1.2em; 
+            margin: 10px 0; 
+            font-weight: bold; 
+            color: #00d2d3;
+            min-height: 28px;
+        }
+        #board { 
+            width: 90vw;
+            max-width: 500px; 
+            margin: 10px auto; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.7);
+        }
+        /* Vykreslenie čistých čierno-bielych šachových symbolov */
+        .custom-piece {
+            font-size: calc(90vw / 8 - 5px);
+            line-height: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            user-select: none;
+            cursor: pointer;
+        }
+        @media (min-width: 550px) {
+            .custom-piece { font-size: 55px; }
+        }
+        .white-p { color: #ffffff; text-shadow: 0 0 3px #000, 0 0 5px #000; }
+        .black-p { color: #000000; text-shadow: 0 0 2px #fff; }
 
+        .btn { 
+            padding: 12px 20px; 
+            font-size: 1em; 
+            cursor: pointer; 
+            background: #28a745; 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            margin: 5px;
+            font-weight: bold;
+        }
+        .btn:hover { background: #218838; }
+        #restartBtn { background: #007bff; display: none; }
+        #restartBtn:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+
+    <h1>Online Šach</h1>
+    <div id="status">Pripájanie k serveru...</div>
+    <div id="board"></div>
+
+    <button class="btn" onclick="copyInviteLink()">Vytvoriť pozvánku pre kamaráta</button>
+    <button class="btn" id="restartBtn" onclick="requestRestart()">Hrať znova (Play Again)</button>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script>
+        const socket = io();
+        let game = new Chess();
+        let board = null;
+        let myColor = null;
+
+        const unicodePieces = {
+            'wP': '♙', 'wR': '♖', 'wN': '♘', 'wB': '♗', 'wQ': '♕', 'wK': '♔',
+            'bP': '♟', 'bR': '♜', 'bN': '♞', 'bB': '♝', 'bQ': '♛', 'bK': '♚'
+        };
+
+        const urlParams = new URLSearchParams(window.location.search);
+        let roomId = urlParams.get('room');
+
+        if (!roomId) {
+            roomId = Math.random().toString(36).substring(2, 9);
+            window.history.pushState({}, '', '?room=' + roomId);
+        }
+
+        socket.emit('joinRoom', roomId);
+
+        socket.on('init', (data) => {
+            myColor = data.color;
+            if (myColor === 'w') {
+                document.getElementById('status').innerText = 'Si BIELY. Čaká sa na druhého hráča...';
+            } else if (myColor === 'b') {
+                document.getElementById('status').innerText = 'Si ČIERNY. Hra začína!';
+            } else {
+                document.getElementById('status').innerText = 'Miestnosť je plná (Si iba divák)';
+            }
+            initBoard();
+        });
+
+        socket.on('startGame', () => {
+            if (myColor === 'w') {
+                document.getElementById('status').innerText = 'Hráč sa pripojil! Si na ťahu (Biely).';
+            }
+        });
+
+        function onDragStart(source, piece) {
+            if (game.game_over()) return false;
+            if ((game.turn() === 'w' && (myColor !== 'w' || piece.search(/^b/) !== -1)) ||
+                (game.turn() === 'b' && (myColor !== 'b' || piece.search(/^w/) !== -1))) {
+                return false;
+            }
+        }
+
+        function onDrop(source, target) {
+            const move = game.move({
+                from: source,
+                to: target,
+                promotion: 'q'
+            });
+
+            if (move === null) return 'snapback';
+
+            socket.emit('move', { source, target });
+            updateStatus();
+        }
+
+        function onSnapEnd() {
+            board.position(game.fen());
+        }
+
+        socket.on('move', (moveData) => {
+            game.move({ from: moveData.source, to: moveData.target, promotion: 'q' });
+            board.position(game.fen());
+            updateStatus();
+        });
+
+        function initBoard() {
+            const config = {
+                draggable: true,
+                position: 'start',
+                orientation: myColor === 'b' ? 'black' : 'white',
+                onDragStart: onDragStart,
+                onDrop: onDrop,
+                onSnapEnd: onSnapEnd,
+                pieceTheme: function(piece) {
+                    const colorClass = piece.startsWith('w') ? 'white-p' : 'black-p';
+                    const symbol = unicodePieces[piece] || '';
+                    return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><text x="50%" y="55%" dominant-baseline="central" text-anchor="middle" font-size="80" fill="' + (piece.startsWith('w') ? '%23ffffff' : '%23000000') + '" stroke="' + (piece.startsWith('w') ? '%23000000' : '%23ffffff') + '" stroke-width="2">' + symbol + '</text></svg>';
+                }
+            };
+            board = Chessboard('board', config);
+        }
+
+        function updateStatus() {
+            let status = '';
+            const turnText = game.turn() === 'w' ? 'Biely' : 'Čierny';
+
+            if (game.in_checkmate()) {
+                status = `Koniec hry - Šach mat! Vyhral ${game.turn() === 'b' ? 'Biely' : 'Čierny'}.`;
+                document.getElementById('restartBtn').style.display = 'inline-block';
+            } else if (game.in_draw()) {
+                status = 'Koniec hry - Remíza!';
+                document.getElementById('restartBtn').style.display = 'inline-block';
+            } else {
+                status = `Na ťahu je: ${turnText}`;
+                if (game.in_check()) {
+                    status += ' (ŠACH!)';
+                }
+            }
+            document.getElementById('status').innerText = status;
+        }
+
+        function requestRestart() {
+            document.getElementById('status').innerText = 'Čaká sa na druhého hráča...';
+            document.getElementById('restartBtn').disabled = true;
+            socket.emit('restartGame');
+        }
+
+        socket.on('playerWantsRestart', () => {
+            document.getElementById('status').innerText = 'Súper chce hrať znova! Klikni na Play Again.';
+        });
+
+        socket.on('resetBoard', () => {
+            game.reset();
+            board.start();
+            document.getElementById('restartBtn').style.display = 'none';
+            document.getElementById('restartBtn').disabled = false;
+            updateStatus();
+        });
+
+        function copyInviteLink() {
+            const el = document.createElement('textarea');
+            el.value = window.location.href;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            alert('Odkaz bol skopírovaný!');
+        }
+    </script>
+</body>
+</html>
