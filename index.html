@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8">
+  <title>Náš Online Šach</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #1e1e1e;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    #status { font-size: 20px; color: #4caf50; margin-bottom: 15px; font-weight: bold; text-align: center; }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(8, 65px);
+      grid-template-rows: repeat(8, 65px);
+      border: 4px solid #404040;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      user-select: none;
+    }
+    .square {
+      width: 65px; height: 65px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 42px; cursor: pointer;
+    }
+    .white-sq { background-color: #eeeed2; color: #000; }
+    .black-sq { background-color: #769656; color: #000; }
+    .selected { background-color: #baca44 !important; }
+    button {
+      background-color: #4CAF50; color: white; border: none;
+      padding: 12px 24px; font-size: 18px; border-radius: 5px;
+      cursor: pointer; font-weight: bold;
+    }
+    button:hover { background-color: #45a049; }
+  </style>
+</head>
+<body>
+
+  <h1>Online Šach</h1>
+  <div id="status">Vytvor hru a pozvi kamaráta</div>
+
+  <div id="lobby" style="margin-bottom: 20px;">
+    <button onclick="createGame()">Vytvoriť pozvánku na hru</button>
+  </div>
+
+  <div id="board" class="board" style="display:none;"></div>
+
+  <script>
+    const socket = io();
+    let roomId = null;
+    let myColor = null;
+    let currentTurn = 'white';
+    let selectedSquare = null;
+
+    const PIECES = {
+      'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚', 'p': '♟',
+      'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔', 'P': '♙'
+    };
+
+    let board = [
+      ['r','n','b','q','k','b','n','r'],
+      ['p','p','p','p','p','p','p','p'],
+      ['','','','','','','',''],
+      ['','','','','','','',''],
+      ['','','','','','','',''],
+      ['','','','','','','',''],
+      ['P','P','P','P','P','P','P','P'],
+      ['R','N','B','Q','K','B','N','R']
+    ];
+
+    // Skontrolujeme, či prichádza hráč cez pozvánkový odkaz (?room=KOD)
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomFromUrl = urlParams.get('room');
+
+    if (roomFromUrl) {
+      document.getElementById('lobby').style.display = 'none';
+      document.getElementById('status').innerText = "Pripájam k hre...";
+      socket.emit('joinGame', roomFromUrl);
+    }
+
+    function createGame() {
+      socket.emit('createGame');
+    }
+
+    socket.on('gameCreated', (data) => {
+      roomId = data.roomId;
+      myColor = data.color;
+      
+      const inviteLink = `${window.location.origin}/?room=${roomId}`;
+      navigator.clipboard.writeText(inviteLink);
+      
+      document.getElementById('lobby').style.display = 'none';
+      document.getElementById('status').innerText = "Odkaz na hru bol skopírovaný do schránky! Pošli ho kamarátovi do chatu...";
+    });
+
+    socket.on('gameJoined', (data) => {
+      roomId = data.roomId;
+      myColor = data.color;
+    });
+
+    socket.on('startGame', () => {
+      document.getElementById('board').style.display = 'grid';
+      document.getElementById('status').innerText = `Hra začala! Hráš za: ${myColor === 'white' ? 'Bielych' : 'Čiernych'}. ${currentTurn === myColor ? 'Si na ťahu!' : 'Súper je na ťahu...'}`;
+      renderBoard();
+    });
+
+    socket.on('opponentMove', (move) => {
+      board[move.toR][move.toC] = board[move.fromR][move.fromC];
+      board[move.fromR][move.fromC] = '';
+      currentTurn = myColor;
+      document.getElementById('status').innerText = "Si na ťahu!";
+      renderBoard();
+    });
+
+    socket.on('errorMsg', (msg) => alert(msg));
+
+    function renderBoard() {
+      const bEl = document.getElementById('board');
+      bEl.innerHTML = '';
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const sq = document.createElement('div');
+          sq.className = `square ${(r + c) % 2 === 0 ? 'white-sq' : 'black-sq'}`;
+          
+          if (selectedSquare && selectedSquare.r === r && selectedSquare.c === c) {
+            sq.classList.add('selected');
+          }
+
+          const piece = board[r][c];
+          if (piece) sq.innerText = PIECES[piece];
+
+          sq.addEventListener('click', () => handleSquareClick(r, c));
+          bEl.appendChild(sq);
+        }
+      }
+    }
+
+    function handleSquareClick(r, c) {
+      if (currentTurn !== myColor) return;
+
+      const piece = board[r][c];
+      const isMyPiece = piece && ((myColor === 'white' && piece === piece.toUpperCase()) || 
+                                 (myColor === 'black' && piece === piece.toLowerCase()));
+
+      if (isMyPiece) {
+        selectedSquare = { r, c };
+        renderBoard();
+      } else if (selectedSquare) {
+        const move = { fromR: selectedSquare.r, fromC: selectedSquare.c, toR: r, toC: c };
+        
+        board[move.toR][move.toC] = board[move.fromR][move.fromC];
+        board[move.fromR][move.fromC] = '';
+        
+        selectedSquare = null;
+        currentTurn = myColor === 'white' ? 'black' : 'white';
+        document.getElementById('status').innerText = "Čaká sa na ťah súperom...";
+        renderBoard();
+
+        socket.emit('makeMove', { roomId, move });
+      }
+    }
+  </script>
+</body>
+</html>
