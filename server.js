@@ -4,54 +4,55 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server);
 
 app.use(express.static('public'));
 
-const games = {};
+const rooms = {};
 
 io.on('connection', (socket) => {
-  // Vytvorenie miestnosti
-  socket.on('createGame', () => {
-    const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
-    games[roomId] = { players: [socket.id] };
-    
-    socket.join(roomId);
-    socket.emit('gameCreated', { roomId, color: 'white' });
-  });
+    socket.on('joinRoom', (roomId) => {
+        socket.join(roomId);
 
-  // Pripojenie cez odkaz
-  socket.on('joinGame', (roomId) => {
-    const room = games[roomId];
+        if (!rooms[roomId]) {
+            rooms[roomId] = { players: [], restartVotes: 0 };
+        }
+        
+        rooms[roomId].players.push(socket.id);
 
-    if (!room) {
-      socket.emit('errorMsg', 'Miestnosť neexistuje alebo vypršala!');
-      return;
-    }
+        if (rooms[roomId].players.length === 1) {
+            socket.emit('init', { color: 'w' });
+        } else if (rooms[roomId].players.length === 2) {
+            socket.emit('init', { color: 'b' });
+            io.to(roomId).emit('startGame');
+        } else {
+            socket.emit('init', { color: 'spectator' });
+        }
 
-    if (room.players.length >= 2) {
-      socket.emit('errorMsg', 'V tejto miestnosti už hrajú dvaja hráči!');
-      return;
-    }
+        socket.on('move', (moveData) => {
+            socket.to(roomId).emit('move', moveData);
+        });
 
-    room.players.push(socket.id);
-    socket.join(roomId);
-    
-    socket.emit('gameJoined', { roomId, color: 'black' });
-    io.to(roomId).emit('startGame');
-  });
+        // Spracovanie požiadavky na novú hru
+        socket.on('restartGame', () => {
+            if (rooms[roomId]) {
+                rooms[roomId].restartVotes++;
+                if (rooms[roomId].restartVotes >= 2) {
+                    rooms[roomId].restartVotes = 0;
+                    io.to(roomId).emit('resetBoard');
+                } else {
+                    socket.to(roomId).emit('playerWantsRestart');
+                }
+            }
+        });
 
-  // Posielanie ťahov
-  socket.on('makeMove', ({ roomId, move }) => {
-    socket.to(roomId).emit('opponentMove', move);
-  });
-
-  socket.on('disconnect', () => {
-    // Čistenie pri odpojení
-  });
+        socket.on('disconnect', () => {
+            if (rooms[roomId]) {
+                rooms[roomId].players = rooms[roomId].players.filter(id => id !== socket.id);
+            }
+        });
+    });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server beží na portu ${PORT}`);
-});
+server.listen(PORT, () => console.log(`Server beží na porte ${PORT}`));
