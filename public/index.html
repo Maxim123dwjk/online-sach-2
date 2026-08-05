@@ -28,6 +28,17 @@
             margin: 15px auto; 
             box-shadow: 0 5px 15px rgba(0,0,0,0.7);
         }
+
+        /* OPRAVA FARIEB ŠACHOVNICE */
+        .white-1e1d3 {
+            background-color: #f0d9b5 !important; /* Svetlé políčka - krémová */
+            color: #b58863 !important;
+        }
+        .black-3c85d {
+            background-color: #b58863 !important; /* Tmavé políčka - teplá hnedá */
+            color: #f0d9b5 !important;
+        }
+
         .btn { 
             padding: 12px 20px; 
             font-size: 1em; 
@@ -133,7 +144,6 @@
                 onDragStart: onDragStart,
                 onDrop: onDrop,
                 onSnapEnd: onSnapEnd,
-                // Stabilný priamy odkaz na PNG figúrky
                 pieceTheme: 'https://raw.githubusercontent.com/oakmac/chessboardjs/master/website/img/chesspieces/wikipedia/{piece}.png'
             };
             board = Chessboard('board', config);
